@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipByNaim Live Player + Recorder</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+body { background:#000; color:#fff; text-align:center; font-family:Arial, sans-serif; padding:10px; }
+h2 { color:#ff334b; }
+input { width:95%; padding:15px; font-size:16px; margin-bottom:10px; border-radius:8px; border:none; }
+button { width:95%; padding:18px; font-size:18px; border:none; border-radius:10px; margin:5px 0; cursor:pointer; }
+#playBtn { background:#ff334b; color:#fff; }
+#recBtn { background:red; color:#fff; }
+#stopBtn { background:#fff; color:#000; }
+video { width:100%; border-radius:10px; background:#000; margin:15px 0; }
+#msg { color:yellow; font-size:14px; }
+</style>
+</head>
+<body>
+
+<h2>ClipByNaim Live Player + Recorder</h2>
+
+<input id="link" placeholder="Paste .m3u8 / LIVE link here">
+<br>
+<button id="playBtn">▶ PLAY</button>
+<button id="recBtn">● REC</button>
+<button id="stopBtn">■ STOP & SAVE</button>
+
+<video id="v" controls playsinline></video>
+<p id="msg"></p>
+
+<script>
+const v = document.getElementById("v");
+const linkInput = document.getElementById("link");
+const msg = document.getElementById("msg");
+
+let mediaRecorder;
+let chunks=[];
+
+// --- PLAY LIVE ---
+document.getElementById("playBtn").onclick = () => {
+  const url = linkInput.value.trim();
+  if(!url) return alert("Paste LIVE .m3u8 link!");
+
+  if(Hls.isSupported()){
+    const hls = new Hls({liveSyncDurationCount:3});
+    hls.loadSource(url);
+    hls.attachMedia(v);
+    hls.on(Hls.Events.MANIFEST_PARSED,()=>v.play());
+  } else {
+    v.src = url;
+    v.play();
+  }
+  msg.innerText = "LIVE playing...";
+}
+
+// --- START RECORD ---
+document.getElementById("recBtn").onclick = () => {
+  if(!v.captureStream){ alert("Mobile browser cannot record."); return; }
+  recBtn.disabled = true;
+  chunks=[];
+  mediaRecorder = new MediaRecorder(v.captureStream());
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks,{type:"video/webm"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ClipByNaim_LIVE.webm";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    msg.innerText = "⬇ Video ready! Save from browser menu if needed.";
+    recBtn.disabled = false;
+  }
+  mediaRecorder.start();
+  msg.innerText = "🔴 Recording LIVE...";
+}
+
+// --- STOP RECORD ---
+document.getElementById("stopBtn").onclick = () => {
+  if(mediaRecorder) mediaRecorder.stop();
+}
+</script>
+
+</body>
+</html>

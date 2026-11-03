@@ -1,0 +1,58 @@
+
+name: MPD Export and GoFile Upload
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download authorized export
+        env:
+          VIDEO_EXPORT_URL: ${{ secrets.VIDEO_EXPORT_URL }}
+        run: python recorder.py
+
+      - name: Upload to GoFile
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+          SERVER=$(curl -fsSL \
+            https://api.gofile.io/servers \
+            | jq -r '.data.servers[0].name')
+
+          RESPONSE=$(curl -fsSL \
+            -F "file=@recording.mp4" \
+            "https://${SERVER}.gofile.io/uploadFile")
+
+          echo "$RESPONSE" | jq .
+
+          LINK=$(echo "$RESPONSE" \
+            | jq -r '.data.downloadPage')
+
+          test "$LINK" != "null"
+          echo "GOFILE_LINK=$LINK" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save GitHub backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: recording-backup
+          path: recording.mp4
+          retention-days: 7
